@@ -4,12 +4,8 @@ from typing import Any
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import health
+from app.api.routes import health, history, scan
 from app.core.database import create_tables
-
-# Additional routers registered here as each module is implemented via TDD:
-# from app.api.routes import scan, history
-# from app.dashboard import router as dashboard_router
 
 
 @asynccontextmanager
@@ -33,3 +29,5 @@ app.add_middleware(
 )
 
 app.include_router(health.router)
+app.include_router(scan.router, prefix="/api")
+app.include_router(history.router, prefix="/api")

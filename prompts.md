@@ -61,15 +61,36 @@ Tests must FAIL — parser does not exist yet.
 **Result:** ruff ✓ · mypy ✓ · bandit ✓ · 18 GREEN ✓
 **Elapsed:** 0h 45m
 
-## Turn 01 | Role: ARCHITECT | Phase: ARCHITECTURE | Elapsed: 0h 08m
-**Prompt:** Lead Architect mode: ON. Build Enterprise Security Guardrail Auditor.
-Produce VISION.md, ARCHITECTURE.md, ADR.md, SPEC.md before any code.
-**Intent:** Establish complete system design before implementation — prevents
-architectural drift mid-build and gives every subsequent prompt a stable reference.
-**Output:**
-- VISION.md — problem, users, 7 success criteria, 6 non-goals
-- ARCHITECTURE.md — full component diagram, 12 rules, API surface, DB schema, project structure
-- ADR.md — 5 architecture decision records (SQLite, rule engine, scoring, parsing, AI layer)
-- SPEC.md — 5 module specs with INTENT/OUTCOMES/SCOPE IN/SCOPE OUT/CONSTRAINTS/AC
-**Architect approval:** pending
-**Elapsed:** 0h 08m
+## Turn 06 | Role: ENGINEER | Phase: RED | Module: scanner-engine | Elapsed: 1h 05m
+**INTENT:** As a security engineer, I want every uploaded resource checked against all 12 rules
+so that no misconfiguration is silently missed.
+**Prompt:** Write 40 failing pytest tests for ScannerEngine + Finding covering all 8 SPEC AC.
+Finding must be a Pydantic v2 BaseModel (governance mandate). Tests parametrised over all 12
+fire/no-fire cases.
+**Acceptance:** 40 tests, all failing with ModuleNotFoundError
+**Result:** 40 failed ✓
+**Elapsed:** 1h 05m
+
+## Turn 07 | Role: ENGINEER | Phase: GREEN | Module: scanner-engine | Elapsed: 1h 20m
+**Prompt:** Implement Finding (Pydantic v2 frozen BaseModel, severity Literal enum), SecurityRule
+(frozen dataclass + Callable check), ScannerEngine.scan() applying resource-type filters. All 40
+tests must pass.
+**Bugs fixed:** HARDCODED_SECRET — SSM parameter stores secret in 'name' field, not config key.
+Added param_name check. Lambda tags check had stale type:ignore; _is_world_cidr needed bool() cast.
+**Learning:** Pydantic v2 frozen models enforce severity as Literal["CRITICAL","HIGH","MEDIUM"] —
+invalid severity raises ValidationError, not silently coerces. Use this for all finding validation.
+**Result:** 40 passed ✓
+**Elapsed:** 1h 20m
+
+## Turn 08 | Role: ENGINEER | Phase: RED | Module: risk-scorer | Elapsed: 1h 28m
+**INTENT:** As a manager, I want a single 0-100 risk score so that I can understand infrastructure
+risk without reading individual findings.
+**Prompt:** Write 19 failing tests for RiskScorer covering all 7 SPEC AC + parametrised formula
+checks. Formula: min(CRITICAL×40 + HIGH×20 + MEDIUM×5, 100).
+**Result:** 19 failed ✓ (ModuleNotFoundError)
+**Elapsed:** 1h 28m
+
+## Turn 09 | Role: ENGINEER | Phase: GREEN | Module: risk-scorer | Elapsed: 1h 32m
+**Prompt:** Implement RiskScorer.score(findings) — minimum code to pass all 19 tests.
+**Result:** 19 passed ✓ · ruff ✓ · mypy ✓ · bandit ✓ · 78 total GREEN · 89% coverage
+**Elapsed:** 1h 32m

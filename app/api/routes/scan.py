@@ -13,6 +13,7 @@ from app.core.config import settings
 from app.core.database import get_session
 from app.models.scan import Finding as FindingORM
 from app.models.scan import Scan
+from app.scanner.ai_analyser import AIAnalyser
 from app.scanner.engine import ScannerEngine
 from app.scanner.parser import FileParser
 from app.scanner.scorer import RiskScorer
@@ -56,9 +57,11 @@ async def upload_scan(
     resources, _parse_error = FileParser.parse(content, file.filename or "unknown")
     findings = ScannerEngine().scan(resources)
     score = RiskScorer.score(findings)
+    summary = await AIAnalyser.summarise(findings, file.filename or "unknown", score)
 
     scan.status = "complete"
     scan.risk_score = score
+    scan.summary = summary
 
     for f in findings:
         session.add(FindingORM(

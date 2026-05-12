@@ -94,3 +94,41 @@ checks. Formula: min(CRITICAL×40 + HIGH×20 + MEDIUM×5, 100).
 **Prompt:** Implement RiskScorer.score(findings) — minimum code to pass all 19 tests.
 **Result:** 19 passed ✓ · ruff ✓ · mypy ✓ · bandit ✓ · 78 total GREEN · 89% coverage
 **Elapsed:** 1h 32m
+
+---
+
+## Turn 10 | Role: ENGINEER | Phase: RED | Module: api-routes | Elapsed: 1h 45m
+**INTENT:** As a developer, I want a clean REST API so that I can integrate the scanner into any
+CI/CD pipeline or tool.
+**Prompt:** Write 19 failing integration tests for the full API surface. Pydantic v2 schemas must be
+validated via test assertions (ScanResponse, FindingResponse fields). All status codes covered.
+**Result:** 17 failed ✓ (ImportError — schemas/routes not yet implemented)
+**Elapsed:** 1h 45m
+
+## Turn 11 | Role: ENGINEER | Phase: GREEN | Module: api-routes | Elapsed: 2h 05m
+**Prompt:** Implement ScanQueuedResponse, FindingResponse, ScanResponse, ScanHistoryItem as Pydantic
+v2 BaseModels. Implement POST /api/scan, GET /api/scan/{id}, GET /api/scans routes. Wire into main.py.
+**Pydantic governance baked in:**
+- FindingResponse.severity: Literal["CRITICAL","HIGH","MEDIUM"] — enum-validated
+- ScanResponse.risk_score: Field(ge=0, le=100) — range-validated
+- ScanHistoryItem.model_config: from_attributes=True for SQLAlchemy ORM compat
+- All schemas are frozen or validated at boundary — no raw dicts escape the API layer
+**Result:** 19 passed ✓ · ruff ✓ · mypy ✓ · bandit ✓ · 97 total GREEN · 87% coverage
+**Elapsed:** 2h 05m
+
+## Turn 12 | Role: ENGINEER | Phase: DEMO | Module: dashboard | Elapsed: 2h 22m
+**Prompt:** Build Bootstrap 5 + Chart.js dashboard — risk score gauge (doughnut), severity bar chart,
+top rules horizontal bar, recent scans table, inline upload form. No external CDN for Chart.js (bundled).
+**Result:** 7 dashboard tests GREEN · 104 total GREEN · 86% coverage
+**Elapsed:** 2h 22m
+
+## Turn 13 | Role: ENGINEER | Phase: SMOKE | Elapsed: 2h 40m
+**Prompt:** Write 20 smoke tests covering: happy path lifecycle, clean file = zero score, empty/garbage
+files, unsupported extensions, all-violations fixture, multiple uploads, CFN JSON/YAML formats.
+**Bugs caught by smoke:**
+1. S3_VERSIONING_DISABLED false positive — hcl2 parses versioning{} block as list, not dict.
+   Fixed _versioning_enabled() to handle both list[dict] and dict formats.
+2. Concurrent asyncio.gather with shared test session causes IllegalStateChangeError — replaced
+   with sequential uploads (correct for single-user tool architecture).
+**Result:** 120 passed ✓ · ruff ✓ · mypy ✓ · bandit ✓ · 86% coverage
+**Elapsed:** 2h 40m

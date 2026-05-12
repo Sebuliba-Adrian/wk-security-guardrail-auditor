@@ -60,9 +60,9 @@ async def dashboard(
     latest_score = recent_scans[0]["risk_score"] if recent_scans else 0
 
     return templates.TemplateResponse(
-        "dashboard.html",
-        {
-            "request": request,
+        request=request,
+        name="dashboard.html",
+        context={
             "recent_scans": recent_scans,
             "severity_counts": severity_counts,
             "top_rules": top_rules,

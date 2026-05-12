@@ -37,7 +37,7 @@ class FileParser:
         import hcl2
 
         try:
-            data: Any = hcl2.load(  # type: ignore[attr-defined]
+            data: Any = hcl2.load(  # type: ignore
                 io.StringIO(content.decode("utf-8", errors="replace"))
             )
         except Exception:

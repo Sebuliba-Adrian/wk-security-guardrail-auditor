@@ -15,7 +15,10 @@ _OPENAI_BASE_URL = "https://api.openai.com/v1"
 _OPENAI_MODEL = "gpt-4o-mini"
 
 _GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
-_GEMINI_MODEL = "gemini-2.0-flash"
+_GEMINI_MODEL = "models/gemini-2.0-flash-lite"
+
+_DEEPSEEK_BASE_URL = "https://api.deepseek.com/v1"
+_DEEPSEEK_MODEL = "deepseek-chat"
 
 _SYSTEM_PROMPT = (
     "You are a cloud security expert. Analyse the IaC scan findings below and produce "
@@ -58,6 +61,8 @@ class AIAnalyser:
             return settings.openai_api_key, _OPENAI_BASE_URL, _OPENAI_MODEL
         if settings.gemini_api_key:
             return settings.gemini_api_key, _GEMINI_BASE_URL, _GEMINI_MODEL
+        if settings.deepseek_api_key:
+            return settings.deepseek_api_key, _DEEPSEEK_BASE_URL, _DEEPSEEK_MODEL
         return "", _OPENAI_BASE_URL, _OPENAI_MODEL
 
     @staticmethod

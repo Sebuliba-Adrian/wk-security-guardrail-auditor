@@ -65,18 +65,24 @@ style: |
   td { padding: 8px 14px; border-bottom: 1px solid #e0e8f0; }
   tr:nth-child(even) td { background: #f0f6ff; }
   code {
-    background: #f0f6ff;
+    background: #e8f0fe;
     color: #003087;
     padding: 2px 6px;
     border-radius: 4px;
     font-size: 0.9em;
   }
   pre {
-    background: #1a1a2e;
-    color: #a8d8ea;
+    background: #f0f4ff;
+    color: #1a1a2e;
+    border: 2px solid #c5d5f5;
     padding: 20px;
     border-radius: 8px;
-    font-size: 16px;
+    font-size: 15px;
+  }
+  pre code {
+    background: transparent;
+    color: #1a1a2e;
+    font-size: 15px;
   }
   .tag {
     display: inline-block;

@@ -121,10 +121,12 @@ class FileParser:
             for rtype, instances in block.items():
                 if not isinstance(instances, dict):
                     continue
+                # hcl2 on some platforms/versions includes surrounding quotes in the key
+                rtype = rtype.strip('"')
                 for name, cfg in instances.items():
                     resources.append({
                         "type": rtype,
-                        "name": name,
+                        "name": name.strip('"'),
                         "config": cfg if isinstance(cfg, dict) else {},
                     })
         return resources, False

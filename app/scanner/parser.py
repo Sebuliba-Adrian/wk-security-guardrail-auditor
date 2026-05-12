@@ -19,6 +19,24 @@ _PULUMI_TYPE_MAP: dict[str, str] = {
     "aws:ssm/parameter:Parameter": "aws_ssm_parameter",
 }
 
+_CFN_TYPE_MAP: dict[str, str] = {
+    "AWS::S3::Bucket": "aws_s3_bucket",
+    "AWS::EC2::SecurityGroupIngress": "aws_security_group_rule",
+    "AWS::EC2::SecurityGroupEgress": "aws_security_group_rule",
+    "AWS::IAM::Policy": "aws_iam_policy",
+    "AWS::EBS::Volume": "aws_ebs_volume",
+    "AWS::RDS::DBInstance": "aws_db_instance",
+    "AWS::CloudTrail::Trail": "aws_cloudtrail",
+    "AWS::SSM::Parameter": "aws_ssm_parameter",
+    "AWS::EC2::Instance": "aws_instance",
+}
+
+_CFN_ACL_MAP: dict[str, str] = {
+    "PublicRead": "public-read",
+    "PublicReadWrite": "public-read-write",
+    "Private": "private",
+}
+
 
 def _normalise_pulumi_type(pulumi_type: str) -> str:
     if pulumi_type in _PULUMI_TYPE_MAP:
@@ -30,6 +48,91 @@ def _normalise_pulumi_type(pulumi_type: str) -> str:
         module = parts[1].replace("/", "_")
         return f"{provider}_{module}"
     return pulumi_type
+
+
+def _normalise_cfn_type(cfn_type: str) -> str:
+    return _CFN_TYPE_MAP.get(cfn_type, cfn_type)
+
+
+def _normalise_cfn_tags(value: Any) -> dict[str, str] | Any:
+    if not isinstance(value, list):
+        return value
+
+    tags: dict[str, str] = {}
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        key = item.get("Key")
+        tag_value = item.get("Value")
+        if isinstance(key, str) and isinstance(tag_value, str):
+            tags[key] = tag_value
+    return tags
+
+
+def _normalise_cfn_policy_document(value: Any) -> list[dict[str, Any]]:
+    if not isinstance(value, dict):
+        return []
+
+    statements = value.get("Statement", [])
+    if isinstance(statements, dict):
+        statements = [statements]
+
+    normalised: list[dict[str, Any]] = []
+    for stmt in statements:
+        if not isinstance(stmt, dict):
+            continue
+        actions = stmt.get("Action", [])
+        if isinstance(actions, str):
+            actions = [actions]
+        normalised.append({"actions": actions})
+    return normalised
+
+
+def _normalise_cfn_properties(cfn_type: str, properties: dict[str, Any]) -> dict[str, Any]:
+    cfg = dict(properties)
+
+    if "Tags" in cfg:
+        cfg["tags"] = _normalise_cfn_tags(cfg["Tags"])
+
+    if cfn_type == "AWS::S3::Bucket":
+        acl = cfg.get("AccessControl")
+        if isinstance(acl, str):
+            cfg["acl"] = _CFN_ACL_MAP.get(acl, acl)
+        versioning = cfg.get("VersioningConfiguration")
+        if isinstance(versioning, dict):
+            cfg["versioning"] = {"enabled": versioning.get("Status") == "Enabled"}
+
+    if cfn_type in {"AWS::EC2::SecurityGroupIngress", "AWS::EC2::SecurityGroupEgress"}:
+        cidr_blocks: list[str] = []
+        if isinstance(cfg.get("CidrIp"), str):
+            cidr_blocks.append(cfg["CidrIp"])
+        if isinstance(cfg.get("CidrIpv6"), str):
+            cidr_blocks.append(cfg["CidrIpv6"])
+        cfg["cidr_blocks"] = cidr_blocks
+        cfg["from_port"] = cfg.get("FromPort", -1)
+        cfg["to_port"] = cfg.get("ToPort", -1)
+        cfg["type"] = "egress" if cfn_type.endswith("Egress") else "ingress"
+
+    if cfn_type == "AWS::IAM::Policy":
+        cfg["statement"] = _normalise_cfn_policy_document(cfg.get("PolicyDocument"))
+
+    if cfn_type == "AWS::EBS::Volume":
+        cfg["encrypted"] = cfg.get("Encrypted")
+
+    if cfn_type == "AWS::RDS::DBInstance":
+        cfg["storage_encrypted"] = cfg.get("StorageEncrypted")
+        cfg["publicly_accessible"] = cfg.get("PubliclyAccessible")
+
+    if cfn_type == "AWS::CloudTrail::Trail":
+        cfg["enable_logging"] = cfg.get("IsLogging")
+
+    if cfn_type == "AWS::SSM::Parameter":
+        if "Name" in cfg:
+            cfg["name"] = cfg["Name"]
+        if "Value" in cfg:
+            cfg["value"] = cfg["Value"]
+
+    return cfg
 
 
 class FileParser:
@@ -150,9 +253,15 @@ class FileParser:
         for name, body in cfn_resources.items():
             if not isinstance(body, dict):
                 continue
+            cfn_type = body.get("Type", "")
+            properties = body.get("Properties") or {}
             resources.append({
-                "type": body.get("Type", ""),
+                "type": _normalise_cfn_type(cfn_type),
                 "name": name,
-                "config": body.get("Properties") or {},
+                "config": (
+                    _normalise_cfn_properties(cfn_type, properties)
+                    if isinstance(properties, dict)
+                    else {}
+                ),
             })
         return resources, False

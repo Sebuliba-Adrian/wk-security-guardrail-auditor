@@ -3,14 +3,14 @@
 [![CI](https://github.com/Sebuliba-Adrian/wk-security-guardrail-auditor/actions/workflows/ci.yml/badge.svg)](https://github.com/Sebuliba-Adrian/wk-security-guardrail-auditor/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/python-3.12-blue?logo=python&logoColor=white)](https://www.python.org/)
 [![Tests](https://img.shields.io/badge/tests-120%20passed-brightgreen)](https://github.com/Sebuliba-Adrian/wk-security-guardrail-auditor/actions)
-[![Coverage](https://img.shields.io/badge/coverage-86%25-brightgreen)](https://github.com/Sebuliba-Adrian/wk-security-guardrail-auditor/actions)
+[![Coverage](https://img.shields.io/badge/coverage-87%25-brightgreen)](https://github.com/Sebuliba-Adrian/wk-security-guardrail-auditor/actions)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![mypy](https://img.shields.io/badge/mypy-strict-blue)](https://mypy.readthedocs.io/)
 [![bandit](https://img.shields.io/badge/security-bandit-yellow)](https://bandit.readthedocs.io/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-> Upload a Terraform or CloudFormation IaC file. Get a deterministic 0–100 risk score, colour-coded severity breakdown, and specific remediation for every misconfiguration — in under 5 seconds.
+> Upload a Terraform, CloudFormation, or Pulumi state file. Get a deterministic 0–100 risk score, colour-coded severity breakdown, and specific remediation for every misconfiguration — in under 5 seconds.
 
 **Wolters Kluwer Graduate Vibe Coding Challenge — Project 2**
 Built with: Spec-Driven Design · BDD · TDD (RED → GREEN → REFACTOR) · Pydantic v2 governance
@@ -68,10 +68,10 @@ The interactive Swagger UI lets you upload files and inspect responses without w
 | 📊 | **Risk Score 0–100** | `min(CRITICAL×40 + HIGH×20 + MEDIUM×5, 100)` — deterministic, auditable formula |
 | 🛠️ | **Actionable Remediation** | Every finding includes a specific fix, not just a warning |
 | 🔒 | **Pydantic v2 Governance** | All API boundaries validated — severity is `Literal`, score is range-constrained |
-| 📁 | **Multi-format Support** | Terraform (`.tf`), CloudFormation JSON (`.json`), CloudFormation YAML (`.yaml`/`.yml`) |
-| 🌐 | **Interactive Dashboard** | Bootstrap 5 + Chart.js — risk gauge, severity chart, top rules, recent scans |
+| 📁 | **Multi-format Support** | Terraform (`.tf`), CloudFormation JSON/YAML (`.json`/`.yaml`/`.yml`), Pulumi state (`.json`) |
+| 🌐 | **Interactive Dashboard** | Zero-CDN Jinja dashboard — risk gauge, severity breakdown, top rules, recent scans |
 | 📖 | **OpenAPI / Swagger** | Full API spec auto-generated from Pydantic schemas at `/docs` |
-| 🧪 | **132 Tests** | Unit + integration + smoke, 87% coverage, all gates enforced in CI |
+| 🧪 | **139 Tests** | Unit + integration + smoke, 87% coverage, all gates enforced in CI |
 | 🤖 | **AI Executive Summary** | Per-scan plain-English summary via OpenAI, Gemini, or DeepSeek — graceful skip if no key set |
 | 💾 | **Zero Infrastructure** | SQLite by default — no database server needed |
 
@@ -131,6 +131,17 @@ curl -X POST http://localhost:8000/api/scan \
 ```
 
 **Error codes:** `415` unsupported file type · `422` missing file · `413` file > 20 MB
+
+**Supported formats:**
+
+| Format | Extension | Detection |
+|--------|-----------|-----------|
+| Terraform HCL2 | `.tf` | By extension |
+| CloudFormation JSON | `.json` | Content-sniffed — `Resources` key |
+| CloudFormation YAML | `.yaml` / `.yml` | By extension |
+| **Pulumi state** | `.json` | Content-sniffed — `deployment.resources` key |
+
+> Pulumi state files are produced by `pulumi stack export > stack.json`. The parser normalises Pulumi resource types (`aws:s3/bucket:Bucket`) to their Terraform equivalents (`aws_s3_bucket`) so all 12 security rules apply without modification.
 
 ---
 
@@ -211,7 +222,7 @@ curl http://localhost:8000/api/health
 | Domain objects | Pydantic v2 `BaseModel` (frozen) | Invalid severity raises `ValidationError`, never silently corrupts |
 | Risk formula | `min(C×40 + H×20 + M×5, 100)` | Deterministic, auditable, CRITICAL-weighted |
 | AI layer | Optional (graceful skip) | Works without `OPENAI_API_KEY`; never blocks the scan |
-| Frontend | Jinja2 + Bootstrap 5 + Chart.js | No build step; API-first; dashboard is a thin template layer |
+| Frontend | Jinja2 + inline CSS/JS | No build step; zero external assets; API-first dashboard |
 
 ---
 
@@ -230,7 +241,7 @@ tests/
     └── test_smoke.py      # 20 tests — lifecycle, garbage input, all-violations, multi-upload
 ```
 
-**120 tests · 86% coverage · all Given/When/Then BDD naming**
+**139 tests · 87% coverage · all Given/When/Then BDD naming**
 
 Run the full suite:
 ```bash
@@ -352,7 +363,7 @@ wk-security-guardrail-auditor/
 │   │   ├── engine.py                # ScannerEngine + Finding Pydantic model
 │   │   └── scorer.py                # RiskScorer — deterministic 0-100 formula
 │   └── dashboard/templates/
-│       └── dashboard.html           # Jinja2 template — Bootstrap 5 + Chart.js
+│       └── dashboard.html           # Jinja2 template — zero-CDN dashboard
 ├── tests/
 │   ├── conftest.py                  # Async fixtures: in-memory DB, test client
 │   ├── unit/                        # 77 unit tests
@@ -367,3 +378,11 @@ wk-security-guardrail-auditor/
 ├── prompts.md                       # Full vibe coding audit log (13 turns)
 └── pyproject.toml                   # Build config, ruff, mypy, bandit, pytest settings
 ```
+
+## Submission Compliance
+
+- Tagle summary included in [TAGLE.md](C:/projects/wk-security-guardrail-auditor/TAGLE.md) and the source profile PDF is present in the repo.
+- Public GitHub repository reference is documented in this README.
+- `prompts.md` is maintained as the workflow audit log.
+- Presentation artifacts are included as `PRESENTATION.md`, `slides.md`, and `presentation.pdf`.
+- Cloud resource decommission confirmation: this solution runs locally on SQLite and does not require a live cloud account; no cloud resources remain allocated for the submission.

@@ -195,3 +195,109 @@ def test_given_single_resource_files_when_parsed_then_correct_count(
     resources, parse_error = FileParser.parse(contents[filename], filename)
     assert parse_error is False
     assert len(resources) == expected_count
+
+
+# ---------------------------------------------------------------------------
+# AC-07: Pulumi state JSON — detected and parsed via content-sniffing
+# ---------------------------------------------------------------------------
+
+PULUMI_STATE = b"""{
+  "version": 3,
+  "deployment": {
+    "resources": [
+      {
+        "urn": "urn:pulumi:dev::proj::aws:s3/bucket:Bucket::bad-bucket",
+        "type": "aws:s3/bucket:Bucket",
+        "inputs": {
+          "acl": "public-read",
+          "bucket": "bad-bucket"
+        }
+      },
+      {
+        "urn": "urn:pulumi:dev::proj::aws:ebs/volume:Volume::my-vol",
+        "type": "aws:ebs/volume:Volume",
+        "inputs": {
+          "encrypted": false
+        }
+      }
+    ]
+  }
+}"""
+
+
+def test_given_pulumi_state_json_when_parsed_then_returns_two_resources() -> None:
+    from app.scanner.parser import FileParser
+
+    resources, parse_error = FileParser.parse(PULUMI_STATE, "stack.json")
+    assert parse_error is False
+    assert len(resources) == 2
+
+
+def test_given_pulumi_state_json_when_parsed_then_types_are_normalised() -> None:
+    from app.scanner.parser import FileParser
+
+    resources, _ = FileParser.parse(PULUMI_STATE, "stack.json")
+    types = {r["type"] for r in resources}
+    assert "aws_s3_bucket" in types
+    assert "aws_ebs_volume" in types
+
+
+def test_given_pulumi_state_json_when_parsed_then_config_contains_inputs() -> None:
+    from app.scanner.parser import FileParser
+
+    resources, _ = FileParser.parse(PULUMI_STATE, "stack.json")
+    bucket = next(r for r in resources if r["type"] == "aws_s3_bucket")
+    assert bucket["config"].get("acl") == "public-read"
+
+
+def test_given_pulumi_state_when_scanned_then_s3_public_acl_fires() -> None:
+    """End-to-end: Pulumi state → scanner picks up violation."""
+    from app.scanner.engine import ScannerEngine
+    from app.scanner.parser import FileParser
+
+    resources, _ = FileParser.parse(PULUMI_STATE, "stack.json")
+    findings = ScannerEngine().scan(resources)
+    assert any(f.rule_id == "S3_PUBLIC_ACL" for f in findings)
+    assert any(f.rule_id == "UNENCRYPTED_EBS" for f in findings)
+
+
+def test_given_cfn_json_when_parsed_then_still_routes_correctly() -> None:
+    """Regression: CFN JSON must still be detected after content-sniffer added."""
+    from app.scanner.parser import FileParser
+
+    resources, parse_error = FileParser.parse(
+        b'{"Resources": {"B": {"Type": "AWS::S3::Bucket", "Properties": {}}}}',
+        "template.json",
+    )
+    assert parse_error is False
+    assert resources[0]["type"] == "AWS::S3::Bucket"
+
+
+def test_given_unknown_json_when_parsed_then_returns_empty_no_error() -> None:
+    from app.scanner.parser import FileParser
+
+    resources, parse_error = FileParser.parse(
+        b'{"arbitrary": "json", "no_known_keys": true}',
+        "unknown.json",
+    )
+    assert parse_error is False
+    assert resources == []
+
+
+def test_given_pulumi_state_with_unmapped_type_when_parsed_then_uses_fallback() -> None:
+    """Fallback heuristic: aws:newservice/resource:Resource → aws_newservice_resource."""
+    from app.scanner.parser import FileParser
+
+    state = b"""{
+      "deployment": {
+        "resources": [{
+          "urn": "urn:pulumi:dev::proj::aws:newservice/resource:Resource::my-res",
+          "type": "aws:newservice/resource:Resource",
+          "inputs": {"key": "value"}
+        }]
+      }
+    }"""
+    resources, parse_error = FileParser.parse(state, "stack.json")
+    assert parse_error is False
+    assert len(resources) == 1
+    assert resources[0]["type"] == "aws_newservice_resource"

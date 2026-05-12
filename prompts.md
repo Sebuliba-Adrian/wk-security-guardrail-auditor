@@ -112,21 +112,21 @@ checks. Formula: min(CRITICAL×40 + HIGH×20 + MEDIUM×5, 100).
 ## Turn 10 | Role: ENGINEER | Phase: RED | Module: cloudformation-normalisation | Elapsed: 4h 38m
 **Prompt:** Add failing tests proving CloudFormation resources must normalise into the shared scanner rule model and that the dashboard must ship with zero external CDN assets.
 **Acceptance:** parser RED tests fail on CFN type/property mismatches; dashboard RED test fails on CDN usage.
-**Result:** RED confirmed âœ“ CFN findings missing âœ“ dashboard CDN dependency exposed âœ“
+**Result:** RED confirmed [x] CFN findings missing [x] dashboard CDN dependency exposed [x]
 **Elapsed:** 4h 38m
 
 ## Turn 11 | Role: ENGINEER | Phase: GREEN | Module: cloudformation-normalisation | Elapsed: 4h 57m
 **Prompt:** Implement CloudFormation type/property normalisation so the same 12 rules work across Terraform, CloudFormation, and Pulumi. Replace dashboard CDNs with zero-external-asset rendering.
 **Bugs fixed:** CFN `AWS::S3::Bucket` did not map to `aws_s3_bucket`; `AccessControl`, tag lists, IAM policy statements, SG port fields, RDS encryption/public flags, CloudTrail logging, and SSM secret fields all required property translation.
-**Result:** focused parser âœ“ API âœ“ dashboard âœ“ all targeted regressions GREEN âœ“
+**Result:** focused parser [x] API [x] dashboard [x] all targeted regressions GREEN [x]
 **Elapsed:** 4h 57m
 
 ## Turn 12 | Role: ENGINEER | Phase: REFACTOR | Module: cloudformation-normalisation | Elapsed: 5h 09m
 **Prompt:** Extend parser tests to cover the new CloudFormation normalisation paths and refactor the dashboard to keep the implementation deterministic and zero-CDN.
-**Result:** additional parser coverage added âœ“ UI simplified âœ“ no external asset references remain âœ“
+**Result:** additional parser coverage added [x] UI simplified [x] no external asset references remain [x]
 **Elapsed:** 5h 09m
 
 ## Turn 13 | Role: ENGINEER | Phase: SMOKE | Module: full-system | Elapsed: 5h 16m
 **Prompt:** Run the full end-to-end test suite, verify scan lifecycle across Terraform and CloudFormation, then update README/prompts submission-compliance artifacts before commit amend.
-**Result:** 139 passed âœ“ CloudFormation public bucket path verified end-to-end âœ“ submission compliance notes added âœ“
+**Result:** 139 passed [x] CloudFormation public bucket path verified end-to-end [x] submission compliance notes added [x]
 **Elapsed:** 5h 16m

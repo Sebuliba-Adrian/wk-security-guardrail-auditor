@@ -58,5 +58,10 @@ python_version = "3.12"
 strict = true
 ignore_missing_imports = true
 
+[tool.coverage.run]
+omit = [
+    "app/models/*",
+]
+
 [tool.bandit]
 skips = ["B101"]

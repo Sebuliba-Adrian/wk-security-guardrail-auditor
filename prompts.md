@@ -36,6 +36,31 @@ come through RED → GREEN per module.
 **Result:** ruff ✓ · mypy ✓ · bandit ✓ · 1 passed ✓
 **Elapsed:** 0h 22m
 
+---
+
+## Turn 03 | Role: ENGINEER | Phase: RED | Module: file-parser | Elapsed: 0h 31m
+**INTENT:** As a DevOps engineer, I want to upload any IaC file (.tf, .json, .yaml) so that the system
+extracts its resources without me knowing which parser handles which format.
+**Prompt:** Write 18 failing pytest tests for FileParser covering all 6 SPEC acceptance criteria + edge cases.
+Tests must FAIL — parser does not exist yet.
+**Acceptance:** 18 tests, all failing with ModuleNotFoundError
+**Result:** 18 failed ✓ (correct failure — ImportError, no implementation)
+**Elapsed:** 0h 31m
+
+## Turn 04 | Role: ENGINEER | Phase: GREEN | Module: file-parser | Elapsed: 0h 38m
+**Prompt:** Write minimum FileParser implementation to pass all 18 tests. No extra features.
+**Bug found:** python-hcl2 returns "resource" as list of dicts, not dict — fixed in GREEN pass.
+**Learning:** hcl2.load() returns {"resource": [{type: {name: config}}]} not {"resource": {type: {name: config}}}
+             Always iterate resource blocks as a list when using python-hcl2.
+**Result:** 18 passed ✓
+**Elapsed:** 0h 38m
+
+## Turn 05 | Role: ENGINEER | Phase: REFACTOR | Module: file-parser | Elapsed: 0h 45m
+**Prompt:** ruff + mypy --strict + bandit on parser. Fix all issues. Tests must stay green.
+**Issues fixed:** import sort order (ruff), type annotations Any for hcl2 untyped library
+**Result:** ruff ✓ · mypy ✓ · bandit ✓ · 18 GREEN ✓
+**Elapsed:** 0h 45m
+
 ## Turn 01 | Role: ARCHITECT | Phase: ARCHITECTURE | Elapsed: 0h 08m
 **Prompt:** Lead Architect mode: ON. Build Enterprise Security Guardrail Auditor.
 Produce VISION.md, ARCHITECTURE.md, ADR.md, SPEC.md before any code.

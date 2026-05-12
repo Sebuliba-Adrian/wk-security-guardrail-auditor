@@ -71,8 +71,8 @@ The interactive Swagger UI lets you upload files and inspect responses without w
 | 📁 | **Multi-format Support** | Terraform (`.tf`), CloudFormation JSON (`.json`), CloudFormation YAML (`.yaml`/`.yml`) |
 | 🌐 | **Interactive Dashboard** | Bootstrap 5 + Chart.js — risk gauge, severity chart, top rules, recent scans |
 | 📖 | **OpenAPI / Swagger** | Full API spec auto-generated from Pydantic schemas at `/docs` |
-| 🧪 | **120 Tests** | Unit + integration + smoke, 86% coverage, all gates enforced in CI |
-| 🤖 | **Optional AI Summary** | GPT-4o-mini executive summary when `OPENAI_API_KEY` is set |
+| 🧪 | **132 Tests** | Unit + integration + smoke, 87% coverage, all gates enforced in CI |
+| 🤖 | **AI Executive Summary** | Per-scan plain-English summary via OpenAI, Gemini, or DeepSeek — graceful skip if no key set |
 | 💾 | **Zero Infrastructure** | SQLite by default — no database server needed |
 
 ---
@@ -149,7 +149,7 @@ curl http://localhost:8000/api/scan/3fa85f64-5717-4562-b3fc-2c963f66afa6
   "status": "complete",
   "risk_score": 60,
   "scanned_at": "2026-05-12T10:30:00Z",
-  "summary": null,
+  "summary": "Overall Risk Level: Critical. The S3 bucket my_bucket has a public ACL allowing unauthorised internet access. Recommended first action: Set acl to 'private' and restrict access via bucket policies immediately.",
   "findings": [
     {
       "rule_id": "S3_PUBLIC_ACL",
@@ -289,8 +289,44 @@ pytest tests/ -q            # tests + 85% coverage floor
 | Environment Variable | Default | Description |
 |---------------------|---------|-------------|
 | `DATABASE_URL` | `sqlite+aiosqlite:///./security_auditor.db` | Database — swap to `postgresql+asyncpg://...` for production |
-| `OPENAI_API_KEY` | `""` | Optional — enables AI executive summary per scan |
+| `OPENAI_API_KEY` | `""` | Optional — enables AI summary via gpt-4o-mini |
+| `GEMINI_API_KEY` | `""` | Optional — enables AI summary via gemini-2.0-flash-lite |
+| `DEEPSEEK_API_KEY` | `""` | Optional — enables AI summary via deepseek-chat |
 | `MAX_FILE_SIZE_MB` | `20` | Upload size limit in megabytes |
+
+> **AI Summary:** Set any one key and every scan response includes a `summary` field with a plain-English executive summary, top issues identified by resource name, and a recommended first action. Provider priority: OpenAI → Gemini → DeepSeek. Gracefully returns `null` if no key is set or the API call fails — the scan always completes.
+
+---
+
+## AI Executive Summary
+
+When an AI provider key is configured, the scan response includes:
+
+```json
+{
+  "risk_score": 100,
+  "summary": "Overall Risk Level: Critical. The infrastructure has 3 severe
+               misconfigurations: the S3 bucket data_lake has a public ACL
+               enabling unauthorised internet access, SSH port 22 is open to
+               0.0.0.0/0 enabling brute-force attacks, and the RDS instance
+               prod_db is unencrypted and publicly accessible. Recommended
+               first action: Remove the public ACL from data_lake and restrict
+               SSH ingress to known CIDR ranges immediately."
+}
+```
+
+Start the server with any of the following:
+
+```bash
+# OpenAI
+OPENAI_API_KEY=sk-...          uvicorn app.main:app --reload
+
+# Gemini
+GEMINI_API_KEY=AIza...         uvicorn app.main:app --reload
+
+# DeepSeek
+DEEPSEEK_API_KEY=sk-...        uvicorn app.main:app --reload
+```
 
 ---
 

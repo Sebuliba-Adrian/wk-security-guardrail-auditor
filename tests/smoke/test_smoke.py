@@ -305,6 +305,59 @@ async def test_given_cfn_yaml_when_scanned_then_succeeds(client: object) -> None
     assert post.status_code == 202
 
 
+@pytest.mark.asyncio
+async def test_given_cfn_yaml_public_bucket_when_scanned_then_public_acl_finding_present(client: object) -> None:
+    from httpx import AsyncClient
+
+    assert isinstance(client, AsyncClient)
+    bad_yaml = b"""
+Resources:
+  BadBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: bad-bucket
+      AccessControl: PublicRead
+"""
+    post = await client.post(
+        "/api/scan",
+        files={"file": ("bad.yaml", io.BytesIO(bad_yaml), "text/plain")},
+    )
+    assert post.status_code == 202
+    scan_id = post.json()["scan_id"]
+    body = (await client.get(f"/api/scan/{scan_id}")).json()
+    assert body["status"] == "complete"
+    assert any(f["rule_id"] == "S3_PUBLIC_ACL" for f in body["findings"])
+
+
+@pytest.mark.asyncio
+async def test_given_cfn_with_intrinsic_functions_when_scanned_then_completes_without_false_positive_secret(
+    client: object,
+) -> None:
+    from httpx import AsyncClient
+
+    assert isinstance(client, AsyncClient)
+    intrinsic_json = b"""{
+      "Resources": {
+        "ParamSecret": {
+          "Type": "AWS::SSM::Parameter",
+          "Properties": {
+            "Name": {"Fn::Sub": "${Env}-db-password"},
+            "Value": {"Ref": "SecretValue"}
+          }
+        }
+      }
+    }"""
+    post = await client.post(
+        "/api/scan",
+        files={"file": ("intrinsic.json", io.BytesIO(intrinsic_json), "application/json")},
+    )
+    assert post.status_code == 202
+    scan_id = post.json()["scan_id"]
+    body = (await client.get(f"/api/scan/{scan_id}")).json()
+    assert body["status"] == "complete"
+    assert not any(f["rule_id"] == "HARDCODED_SECRET" for f in body["findings"])
+
+
 # ---------------------------------------------------------------------------
 # Edge case: score is always in valid range
 # ---------------------------------------------------------------------------

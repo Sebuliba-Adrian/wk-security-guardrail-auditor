@@ -127,3 +127,12 @@ async def test_dashboard_upload_form_present(client: object) -> None:
     resp = await client.get("/dashboard")
     assert "uploadForm" in resp.text
     assert "fileInput" in resp.text
+
+
+@pytest.mark.asyncio
+async def test_dashboard_contains_no_external_cdn_assets(client: object) -> None:
+    from httpx import AsyncClient
+
+    assert isinstance(client, AsyncClient)
+    resp = await client.get("/dashboard")
+    assert "cdn.jsdelivr.net" not in resp.text

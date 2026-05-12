@@ -106,7 +106,7 @@ def test_given_valid_cfn_json_when_parsed_then_returns_one_resource() -> None:
 def test_given_valid_cfn_json_when_parsed_then_type_is_correct() -> None:
     from app.scanner.parser import FileParser
     resources, _ = FileParser.parse(CFN_JSON, "template.json")
-    assert resources[0]["type"] == "AWS::S3::Bucket"
+    assert resources[0]["type"] == "aws_s3_bucket"
     assert resources[0]["name"] == "MyBucket"
 
 
@@ -134,7 +134,7 @@ def test_given_valid_cfn_yaml_when_parsed_then_returns_one_resource() -> None:
     resources, parse_error = FileParser.parse(CFN_YAML, "template.yaml")
     assert parse_error is False
     assert len(resources) == 1
-    assert resources[0]["type"] == "AWS::EC2::Instance"
+    assert resources[0]["type"] == "aws_instance"
 
 
 def test_given_valid_cfn_yml_extension_when_parsed_then_works() -> None:
@@ -176,6 +176,26 @@ def test_given_resource_with_no_properties_when_parsed_then_config_is_dict() -> 
     resources, _ = FileParser.parse(minimal, "bare.tf")
     if resources:
         assert isinstance(resources[0]["config"], dict)
+
+
+def test_given_linux_style_quoted_terraform_scalars_when_normalised_then_quotes_removed() -> None:
+    from app.scanner.parser import _normalise_terraform_value
+
+    normalised = _normalise_terraform_value({
+        "acl": '"public-read"',
+        "cidr_blocks": ['"0.0.0.0/0"'],
+        "__is_block__": True,
+        "tags": {
+            '"Name"': '"bucket"',
+            '"Environment"': '"prod"',
+            "__is_block__": True,
+        },
+    })
+    assert normalised == {
+        "acl": "public-read",
+        "cidr_blocks": ["0.0.0.0/0"],
+        "tags": {"Name": "bucket", "Environment": "prod"},
+    }
 
 
 @pytest.mark.parametrize("filename,expected_count", [
@@ -270,7 +290,242 @@ def test_given_cfn_json_when_parsed_then_still_routes_correctly() -> None:
         "template.json",
     )
     assert parse_error is False
-    assert resources[0]["type"] == "AWS::S3::Bucket"
+    assert resources[0]["type"] == "aws_s3_bucket"
+
+
+def test_given_cfn_json_public_bucket_when_scanned_then_public_acl_finding_fires() -> None:
+    """CloudFormation resources must normalise cleanly into the shared rule engine."""
+    from app.scanner.engine import ScannerEngine
+    from app.scanner.parser import FileParser
+
+    resources, parse_error = FileParser.parse(
+        b"""{
+          "Resources": {
+            "BadBucket": {
+              "Type": "AWS::S3::Bucket",
+              "Properties": {
+                "AccessControl": "PublicRead"
+              }
+            }
+          }
+        }""",
+        "bad.json",
+    )
+    assert parse_error is False
+    findings = ScannerEngine().scan(resources)
+    assert any(f.rule_id == "S3_PUBLIC_ACL" for f in findings)
+
+
+def test_given_cfn_bucket_tags_and_versioning_when_parsed_then_properties_are_normalised() -> None:
+    from app.scanner.parser import FileParser
+
+    resources, parse_error = FileParser.parse(
+        b"""{
+          "Resources": {
+            "Bucket": {
+              "Type": "AWS::S3::Bucket",
+              "Properties": {
+                "AccessControl": "Private",
+                "VersioningConfiguration": {"Status": "Enabled"},
+                "Tags": [
+                  {"Key": "Name", "Value": "prod-bucket"},
+                  {"Key": "Environment", "Value": "prod"}
+                ]
+              }
+            }
+          }
+        }""",
+        "bucket.json",
+    )
+    assert parse_error is False
+    config = resources[0]["config"]
+    assert config["acl"] == "private"
+    assert config["versioning"] == {"enabled": True}
+    assert config["tags"] == {"Name": "prod-bucket", "Environment": "prod"}
+
+
+def test_given_cfn_iam_policy_when_parsed_then_policy_document_is_normalised() -> None:
+    from app.scanner.parser import FileParser
+
+    resources, parse_error = FileParser.parse(
+        b"""{
+          "Resources": {
+            "Policy": {
+              "Type": "AWS::IAM::Policy",
+              "Properties": {
+                "PolicyDocument": {
+                  "Statement": {
+                    "Effect": "Allow",
+                    "Action": "*"
+                  }
+                }
+              }
+            }
+          }
+        }""",
+        "policy.json",
+    )
+    assert parse_error is False
+    assert resources[0]["type"] == "aws_iam_policy"
+    assert resources[0]["config"]["statement"] == [{"actions": ["*"]}]
+
+
+def test_given_cfn_security_group_ingress_when_parsed_then_ports_and_cidrs_are_normalised() -> None:
+    from app.scanner.parser import FileParser
+
+    resources, parse_error = FileParser.parse(
+        b"""{
+          "Resources": {
+            "IngressRule": {
+              "Type": "AWS::EC2::SecurityGroupIngress",
+              "Properties": {
+                "FromPort": 22,
+                "ToPort": 22,
+                "CidrIp": "0.0.0.0/0"
+              }
+            }
+          }
+        }""",
+        "sg.json",
+    )
+    assert parse_error is False
+    config = resources[0]["config"]
+    assert resources[0]["type"] == "aws_security_group_rule"
+    assert config["from_port"] == 22
+    assert config["to_port"] == 22
+    assert config["cidr_blocks"] == ["0.0.0.0/0"]
+    assert config["type"] == "ingress"
+
+
+def test_given_cfn_rds_cloudtrail_and_ssm_when_scanned_then_rules_fire() -> None:
+    from app.scanner.engine import ScannerEngine
+    from app.scanner.parser import FileParser
+
+    resources, parse_error = FileParser.parse(
+        b"""{
+          "Resources": {
+            "Db": {
+              "Type": "AWS::RDS::DBInstance",
+              "Properties": {
+                "StorageEncrypted": false,
+                "PubliclyAccessible": true,
+                "Tags": [{"Key": "Name", "Value": "db"}, {"Key": "Environment", "Value": "prod"}]
+              }
+            },
+            "Trail": {
+              "Type": "AWS::CloudTrail::Trail",
+              "Properties": {
+                "IsLogging": false
+              }
+            },
+            "Secret": {
+              "Type": "AWS::SSM::Parameter",
+              "Properties": {
+                "Name": "db_password",
+                "Value": "super-secret"
+              }
+            }
+          }
+        }""",
+        "controls.json",
+    )
+    assert parse_error is False
+    findings = {f.rule_id for f in ScannerEngine().scan(resources)}
+    assert "UNENCRYPTED_RDS" in findings
+    assert "PUBLIC_RDS" in findings
+    assert "CLOUDTRAIL_DISABLED" in findings
+    assert "HARDCODED_SECRET" in findings
+
+
+def test_given_cfn_security_group_egress_when_scanned_then_unrestricted_egress_fires() -> None:
+    from app.scanner.engine import ScannerEngine
+    from app.scanner.parser import FileParser
+
+    resources, parse_error = FileParser.parse(
+        b"""{
+          "Resources": {
+            "EgressRule": {
+              "Type": "AWS::EC2::SecurityGroupEgress",
+              "Properties": {
+                "FromPort": 0,
+                "ToPort": 0,
+                "CidrIp": "0.0.0.0/0"
+              }
+            }
+          }
+        }""",
+        "egress.json",
+    )
+    assert parse_error is False
+    findings = {f.rule_id for f in ScannerEngine().scan(resources)}
+    assert "UNRESTRICTED_EGRESS" in findings
+
+
+def test_given_cfn_with_intrinsic_functions_when_parsed_then_no_crash_and_safe_config() -> None:
+    from app.scanner.parser import FileParser
+
+    resources, parse_error = FileParser.parse(
+        b"""{
+          "Resources": {
+            "ParamSecret": {
+              "Type": "AWS::SSM::Parameter",
+              "Properties": {
+                "Name": {"Fn::Sub": "${Env}-db-password"},
+                "Value": {"Ref": "SecretValue"}
+              }
+            },
+            "Bucket": {
+              "Type": "AWS::S3::Bucket",
+              "Properties": {
+                "Tags": [
+                  {"Key": "Name", "Value": {"Fn::Sub": "${Env}-bucket"}},
+                  {"Key": "Environment", "Value": "prod"}
+                ]
+              }
+            }
+          }
+        }""",
+        "intrinsics.json",
+    )
+    assert parse_error is False
+    assert len(resources) == 2
+    assert resources[0]["config"]["name"] == {"Fn::Sub": "${Env}-db-password"}
+    assert resources[0]["config"]["value"] == {"Ref": "SecretValue"}
+    assert resources[1]["config"]["tags"] == {"Environment": "prod"}
+
+
+def test_given_cfn_with_intrinsic_functions_when_scanned_then_no_false_positive_secret() -> None:
+    from app.scanner.engine import ScannerEngine
+    from app.scanner.parser import FileParser
+
+    resources, parse_error = FileParser.parse(
+        b"""{
+          "Resources": {
+            "ParamSecret": {
+              "Type": "AWS::SSM::Parameter",
+              "Properties": {
+                "Name": {"Fn::Sub": "${Env}-db-password"},
+                "Value": {"Ref": "SecretValue"}
+              }
+            }
+          }
+        }""",
+        "intrinsics.json",
+    )
+    assert parse_error is False
+    findings = {f.rule_id for f in ScannerEngine().scan(resources)}
+    assert "HARDCODED_SECRET" not in findings
+
+
+def test_given_cfn_with_non_dict_resources_shape_when_parsed_then_returns_parse_error() -> None:
+    from app.scanner.parser import FileParser
+
+    resources, parse_error = FileParser.parse(
+        b'{"Resources": ["not", "a", "mapping"]}',
+        "broken.json",
+    )
+    assert parse_error is True
+    assert resources == []
 
 
 def test_given_unknown_json_when_parsed_then_returns_empty_no_error() -> None:

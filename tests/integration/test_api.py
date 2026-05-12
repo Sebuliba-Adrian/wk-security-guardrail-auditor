@@ -132,6 +132,34 @@ async def test_post_scan_valid_json_returns_202(client: object) -> None:
 
 
 @pytest.mark.asyncio
+async def test_get_scan_cfn_public_bucket_returns_public_acl_finding(client: object) -> None:
+    from httpx import AsyncClient
+
+    assert isinstance(client, AsyncClient)
+    cfn_public = b"""{
+      "Resources": {
+        "BadBucket": {
+          "Type": "AWS::S3::Bucket",
+          "Properties": {
+            "BucketName": "bad-bucket",
+            "AccessControl": "PublicRead"
+          }
+        }
+      }
+    }"""
+    post = await client.post(
+        "/api/scan",
+        files={"file": ("bad.json", io.BytesIO(cfn_public), "application/json")},
+    )
+    scan_id = post.json()["scan_id"]
+    resp = await client.get(f"/api/scan/{scan_id}")
+    body = resp.json()
+
+    assert any(f["rule_id"] == "S3_PUBLIC_ACL" for f in body["findings"])
+    assert body["risk_score"] > 0
+
+
+@pytest.mark.asyncio
 async def test_post_scan_returns_scan_id_uuid_format(client: object) -> None:
     import re
 

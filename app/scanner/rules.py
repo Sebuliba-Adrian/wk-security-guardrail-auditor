@@ -62,9 +62,14 @@ def _has_hardcoded_secret(cfg: dict[str, Any]) -> bool:
 
 def _versioning_enabled(cfg: dict[str, Any]) -> bool:
     v = cfg.get("versioning")
-    if not isinstance(v, dict):
-        return False
-    return bool(v.get("enabled", False))
+    # Terraform HCL block: hcl2 returns list of dicts; object literal (with =): plain dict
+    if isinstance(v, dict):
+        return bool(v.get("enabled", False))
+    if isinstance(v, list) and v:
+        first = v[0]
+        if isinstance(first, dict):
+            return bool(first.get("enabled", False))
+    return False
 
 
 RULES: list[SecurityRule] = [

@@ -6,6 +6,8 @@ class Settings(BaseSettings):
 
     database_url: str = "sqlite+aiosqlite:///./security_auditor.db"
     openai_api_key: str = ""
+    gemini_api_key: str = ""
+    deepseek_api_key: str = ""
     max_file_size_mb: int = 20
 
     @property

@@ -84,6 +84,16 @@ async def test_health_endpoint_returns_ok(client: object) -> None:
     assert resp.json()["status"] == "ok"
 
 
+@pytest.mark.asyncio
+async def test_health_endpoint_returns_request_id_header(client: object) -> None:
+    from httpx import AsyncClient
+
+    assert isinstance(client, AsyncClient)
+    resp = await client.get("/api/health")
+    assert "x-request-id" in resp.headers
+    assert len(resp.headers["x-request-id"]) >= 8
+
+
 # ---------------------------------------------------------------------------
 # AC-01 · POST /api/scan — valid .tf → 202 with scan_id + status
 # ---------------------------------------------------------------------------
@@ -203,6 +213,21 @@ async def test_post_scan_no_file_returns_422(client: object) -> None:
     assert isinstance(client, AsyncClient)
     resp = await client.post("/api/scan")
     assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_post_scan_oversized_file_returns_413(client: object, monkeypatch: pytest.MonkeyPatch) -> None:
+    from httpx import AsyncClient
+
+    from app.api.routes import scan as scan_module
+
+    assert isinstance(client, AsyncClient)
+    monkeypatch.setattr(scan_module.settings, "max_file_size_mb", 0)
+    resp = await client.post(
+        "/api/scan",
+        files={"file": ("main.tf", io.BytesIO(_TF_CONTENT), "text/plain")},
+    )
+    assert resp.status_code == 413
 
 
 # ---------------------------------------------------------------------------

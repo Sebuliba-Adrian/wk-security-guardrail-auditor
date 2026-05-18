@@ -5,11 +5,14 @@
 .ruff_cache
 .mypy_cache
 .hypothesis
+.env
+.env.*
 tests
 __pycache__
 *.pyc
 *.pyo
 *.pyd
+*.log
 security_auditor.db
 presentation.pdf
 tagle-profile.pdf

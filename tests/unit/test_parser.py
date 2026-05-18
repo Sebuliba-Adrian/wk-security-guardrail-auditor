@@ -178,6 +178,26 @@ def test_given_resource_with_no_properties_when_parsed_then_config_is_dict() -> 
         assert isinstance(resources[0]["config"], dict)
 
 
+def test_given_linux_style_quoted_terraform_scalars_when_normalised_then_quotes_removed() -> None:
+    from app.scanner.parser import _normalise_terraform_value
+
+    normalised = _normalise_terraform_value({
+        "acl": '"public-read"',
+        "cidr_blocks": ['"0.0.0.0/0"'],
+        "__is_block__": True,
+        "tags": {
+            '"Name"': '"bucket"',
+            '"Environment"': '"prod"',
+            "__is_block__": True,
+        },
+    })
+    assert normalised == {
+        "acl": "public-read",
+        "cidr_blocks": ["0.0.0.0/0"],
+        "tags": {"Name": "bucket", "Environment": "prod"},
+    }
+
+
 @pytest.mark.parametrize("filename,expected_count", [
     ("main.tf", 1),
     ("template.json", 1),

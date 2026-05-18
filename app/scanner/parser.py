@@ -135,6 +135,22 @@ def _normalise_cfn_properties(cfn_type: str, properties: dict[str, Any]) -> dict
     return cfg
 
 
+def _normalise_terraform_value(value: Any) -> Any:
+    if isinstance(value, str):
+        if len(value) >= 2 and value.startswith('"') and value.endswith('"'):
+            return value[1:-1]
+        return value
+    if isinstance(value, list):
+        return [_normalise_terraform_value(item) for item in value]
+    if isinstance(value, dict):
+        return {
+            str(k).strip('"'): _normalise_terraform_value(v)
+            for k, v in value.items()
+            if str(k) != "__is_block__"
+        }
+    return value
+
+
 class FileParser:
     """Parse .tf, .json, .yaml/.yml files into a normalised resource list.
 
@@ -230,7 +246,7 @@ class FileParser:
                     resources.append({
                         "type": rtype,
                         "name": name.strip('"'),
-                        "config": cfg if isinstance(cfg, dict) else {},
+                        "config": _normalise_terraform_value(cfg) if isinstance(cfg, dict) else {},
                     })
         return resources, False
 

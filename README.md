@@ -295,6 +295,29 @@ pytest tests/ -q            # tests + 85% coverage floor
 
 ---
 
+## Deployment
+
+Minimal container path:
+
+```bash
+docker build -t wk-security-guardrail-auditor .
+docker run --rm -p 8000:8000 wk-security-guardrail-auditor
+```
+
+This repository intentionally stops at a local/container runtime. The challenge scope does not require cloud deployment, orchestration, or managed infrastructure.
+
+---
+
+## Limits
+
+- Single-file scans only; multi-file Terraform module resolution is out of scope.
+- CloudFormation support is normalised for the current 12 rules, not for every AWS resource/property combination.
+- Intrinsic functions such as `Ref` and `Fn::Sub` are parsed safely but are not fully evaluated.
+- Authentication, rate limiting, and distributed worker execution are intentionally deferred for challenge scope control.
+- SQLite is appropriate for local/demo use and should be swapped before any multi-instance deployment.
+
+---
+
 ## Configuration
 
 | Environment Variable | Default | Description |
@@ -304,6 +327,7 @@ pytest tests/ -q            # tests + 85% coverage floor
 | `GEMINI_API_KEY` | `""` | Optional — enables AI summary via gemini-2.0-flash-lite |
 | `DEEPSEEK_API_KEY` | `""` | Optional — enables AI summary via deepseek-chat |
 | `MAX_FILE_SIZE_MB` | `20` | Upload size limit in megabytes |
+| `LOG_LEVEL` | `INFO` | Application log level for structured request/access logs |
 
 > **AI Summary:** Set any one key and every scan response includes a `summary` field with a plain-English executive summary, top issues identified by resource name, and a recommended first action. Provider priority: OpenAI → Gemini → DeepSeek. Gracefully returns `null` if no key is set or the API call fails — the scan always completes.
 

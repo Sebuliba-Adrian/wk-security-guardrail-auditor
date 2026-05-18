@@ -1,0 +1,15 @@
+.git
+.github
+.coverage*
+.pytest_cache
+.ruff_cache
+.mypy_cache
+.hypothesis
+tests
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+security_auditor.db
+presentation.pdf
+tagle-profile.pdf

@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     gemini_api_key: str = ""
     deepseek_api_key: str = ""
     max_file_size_mb: int = 20
+    log_level: str = "INFO"
 
     @property
     def max_file_size_bytes(self) -> int:

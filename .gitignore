@@ -1,3 +1,8 @@
+# Claude Code — track commands only, ignore local project settings
+!.claude/
+!.claude/commands/
+!.claude/commands/*.md
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
